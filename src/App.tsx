@@ -54,7 +54,7 @@ const circleVariants = {
   end:{
     opacity:1,
     duration:1.5,
-    y:0
+    y:0,
   },
 }
 
