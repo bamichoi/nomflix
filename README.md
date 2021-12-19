@@ -1,3 +1,3 @@
-# Framer Motion practice
+# Nomflix
 
-Framer Motion practice for React.js challenge
+Cloning Netflix using React, Framer-Motion, react-qurey ecc, for React.js challenge of Nomad Coders
