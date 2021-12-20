@@ -2,8 +2,9 @@ import { useQuery } from "react-query";
 import { getMovies, IGetMoviesResult } from " api";
 import styled from "styled-components";
 import { makeImagePath } from "./utils";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion, AnimatePresence, useViewportScroll } from "framer-motion";
 import  { useState } from "react"
+import { useHistory, useRouteMatch } from "react-router-dom";
 
 
 const Wrapper = styled.div`
@@ -55,9 +56,70 @@ const Box = styled(motion.div)<{ bgPhoto:string }>`
   background-image: url(${(props) => props.bgPhoto});
   background-size: cover;
   background-position: center center;
-  height: 200px;
-  color: red;
+  height: 150px;
   font-size: 66px;
+  cursor: pointer;
+   &:first-child {
+    transform-origin: center left;
+  }
+  &:last-child {
+    transform-origin: center right;
+  }
+`;
+
+const Payload = styled(motion.div)`
+    opacity:0;
+    padding: 5px;
+    width:100%;
+    background-color: ${props => props.theme.black.lighter};
+    position:absolute;
+    bottom:0;
+    h4 {
+        text-align:center;
+        font-size:10px;
+    }
+`;
+
+const Overlay = styled(motion.div)`
+  position: fixed;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  opacity: 0;
+`;
+
+const MovieCard = styled(motion.div)`
+  position: absolute;
+  width: 40vw;
+  height: 80vh;
+  left: 0;
+  right: 0;
+  margin: 0 auto;
+  background-color: ${(props) => props.theme.black.lighter};
+`;
+
+const CardCover = styled.div`
+  width: 100%;
+  background-size: cover;
+  background-position: center center;
+  height: 400px;
+`;
+
+const CardTitle = styled.h3`
+  color: ${(props) => props.theme.white.lighter};
+  padding: 20px;
+  font-size: 40px;
+  position: relative;
+  top: -80px;
+  font-weight:400;
+`;
+
+const CardOverview = styled.p`
+  padding: 20px;
+  position: relative;
+  top: -80px;
+  color: ${(props) => props.theme.white.lighter};
 `;
 
 const rowVariants = {
@@ -72,13 +134,47 @@ const rowVariants = {
     },
   };
 
+const boxVariants = {
+    normal: {
+      scale: 1,
+    },
+    hover: {
+      scale: 1.3,
+      y: -10,
+      transition: {
+        delay: 0.5,
+        duaration: 0.3,
+        type: "tween",
+      },
+    },
+  };
+
+const payloadVariants = {
+    hover : {
+        opacity:1,
+        transition: {
+            delay: 0.5,
+            duaration: 0.1,
+            type: "tween",
+          },
+    }
+}
+
 const offset = 6;
 
 function Home() {
     const {data, isLoading} = useQuery<IGetMoviesResult>(["movies", "nowPlaying"], getMovies);
     const [index, setIndex] = useState(0);
     const [leaving, setLeaving] = useState(false);
+    const history = useHistory();
+    const movieMatch = useRouteMatch<{ movieId: string }>("/movies/:movieId");
+    const { scrollY } = useViewportScroll();
+    const clickedMovie = movieMatch?.params.movieId && data?.results.find((movie) => movie.id === +movieMatch.params.movieId);
     const toggleLeaving = () => setLeaving((prev) => !prev);
+    const onClicked = (movieId: number) => {
+        history.push(`/movies/${movieId}`);
+      };
+    const onClickedOverlay = () => history.push("/");
     const nextIndex = () => {
         if (data) {
             console.log(leaving)
@@ -102,11 +198,45 @@ function Home() {
                 <AnimatePresence onExitComplete={toggleLeaving} initial={false}>
                     <Row  variants={rowVariants} initial="hidden" animate="visible" exit="exit" transition={{ type: "tween", duration: 1 }} key={index}>
                     {data?.results.slice(1).slice(offset * index, offset * index + offset).map((movie) => (
-                        <Box key={movie.id} bgPhoto={makeImagePath(movie.backdrop_path, "w500")}></Box>
+                        <Box key={movie.id} bgPhoto={makeImagePath(movie.backdrop_path, "w500")}
+                        whileHover="hover"
+                        initial="normal"
+                        layoutId={movie.id + ""}
+                        variants={boxVariants}
+                        onClick={() => onClicked(movie.id)}
+                        >
+                            <Payload variants={payloadVariants}>
+                                <h4>{movie.title}</h4>
+                            </Payload>
+                        </Box>
                         ))}
                     </Row>
                     </AnimatePresence>
                 </Slider>
+                <AnimatePresence>
+                    {movieMatch ? (
+                    <>
+                     <Overlay onClick={onClickedOverlay} animate={{opacity: 1}} exit={{opacity: 0}}>
+                     </Overlay>
+                    <MovieCard
+                        style={{ top: scrollY.get() + 100 }}
+                        layoutId={movieMatch.params.movieId}>
+                        {clickedMovie && (
+                        <>
+                        <CardCover
+                            style={{backgroundImage: `linear-gradient(to top, black, transparent), 
+                            url(${makeImagePath(clickedMovie.backdrop_path,"w500")})`}}>
+                        </CardCover>
+                        <CardTitle>{clickedMovie.title}</CardTitle>
+                        <CardOverview>{clickedMovie.overview}</CardOverview>
+                        </>
+                        )}
+                    </MovieCard> 
+                    </>
+                    ) : null}
+                   
+                   
+                </AnimatePresence>
             </>
             }
         </Wrapper>
