@@ -10,8 +10,8 @@ function App() {
       <Header></Header>
       <Switch>
         <Route path={["/", "/movies/:movieId"]} exact component={Home}/>
-        <Route path="/search" component={Search}/>
-        <Route path="/tv" component={Tv}/>
+        <Route path={["/search", "/search/:objectId"]} component={Search}/>
+        <Route path={["/tv", "/tv/:tvId"]} component={Tv}/>
       </Switch>
       
     </Router>

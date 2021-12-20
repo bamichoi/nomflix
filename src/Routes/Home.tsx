@@ -1,10 +1,11 @@
 import { useQuery } from "react-query";
-import { getMovies, IGetMoviesResult } from " api";
+import { getMovies, getUpcomingMovies, getTopRatedMovies, IGetMoviesResult } from " api";
 import styled from "styled-components";
 import { makeImagePath } from "./utils";
 import { motion, AnimatePresence, useViewportScroll } from "framer-motion";
 import  { useState } from "react"
 import { useHistory, useRouteMatch } from "react-router-dom";
+import { number } from "prop-types";
 
 
 const Wrapper = styled.div`
@@ -39,8 +40,16 @@ const Overview = styled.p`
 `;
 
 const Slider = styled.div`
+  &.slider_0 {
   position: relative;
   top: -100px;
+}
+  &.slider_1 {
+    margin-top:150px;
+  }
+  &.slider_2 {
+    margin-top:250px;
+  }
 `;
 
 const Row = styled(motion.div)`
@@ -122,6 +131,11 @@ const CardOverview = styled.p`
   color: ${(props) => props.theme.white.lighter};
 `;
 
+const CategoryTitle = styled.h2`
+  padding:10px;
+  margin-left:10px;
+`
+
 const rowVariants = {
     hidden: {
       x: window.outerWidth + 10,
@@ -163,24 +177,30 @@ const payloadVariants = {
 const offset = 6;
 
 function Home() {
-    const {data, isLoading} = useQuery<IGetMoviesResult>(["movies", "nowPlaying"], getMovies);
+    const {data : nowPlayingData, isLoading : nowPlayingLoading} = useQuery<IGetMoviesResult>(["movies", "nowPlaying"], getMovies);
+    const {data : topRatedData, isLoading : topRatedLoading } = useQuery<IGetMoviesResult>(["movies", "topRated"], getTopRatedMovies);
+    const {data : upcomingData, isLoading : upcomingLoading } = useQuery<IGetMoviesResult>(["movies", "upcoming"], getUpcomingMovies);
+    const data = [nowPlayingData, topRatedData, upcomingData]
+    const [category, setCategory] = useState(0);
+    const currentData = data[category]
+    const isLoading = ( nowPlayingLoading && topRatedLoading && upcomingLoading)
     const [index, setIndex] = useState(0);
     const [leaving, setLeaving] = useState(false);
     const history = useHistory();
     const movieMatch = useRouteMatch<{ movieId: string }>("/movies/:movieId");
     const { scrollY } = useViewportScroll();
-    const clickedMovie = movieMatch?.params.movieId && data?.results.find((movie) => movie.id === +movieMatch.params.movieId);
+    const clickedMovie = movieMatch?.params.movieId && currentData?.results.find((movie) => movie.id === +movieMatch.params.movieId);
     const toggleLeaving = () => setLeaving((prev) => !prev);
-    const onClicked = (movieId: number) => {
+    const onClicked = (movieId: number, category:number) => {
         history.push(`/movies/${movieId}`);
+        setCategory(category)
       };
     const onClickedOverlay = () => history.push("/");
     const nextIndex = () => {
-        if (data) {
-            console.log(leaving)
+        if (currentData) {
             if (leaving) return;    
             toggleLeaving();
-            const totalMovie = data.results.length - 1;
+            const totalMovie = currentData?.results.length - 1;
             const maxIndex = Math.floor(totalMovie / offset);
             console.log(index, maxIndex);
             setIndex((prev) =>(prev === maxIndex ? 0 : prev + 1));
@@ -190,20 +210,25 @@ function Home() {
         <Wrapper>
             {isLoading ? <Loader>Loading</Loader> : 
             <>
-                <Banner onClick={nextIndex} bgPhoto={makeImagePath(data?.results[0].backdrop_path || "")}>
-                    <Title>{data?.results[0].title}</Title>
-                    <Overview>{data?.results[0].overview}</Overview>
+                <Banner onClick={nextIndex} bgPhoto={makeImagePath(nowPlayingData?.results[0].backdrop_path || "")}>
+                    <Title>{nowPlayingData?.results[0].title}</Title>
+                    <Overview>{nowPlayingData?.results[0].overview}</Overview>
                 </Banner>
-                <Slider>
+                {[0, 1, 2].map( i => ( 
+               <>
+                <Slider className={`slider_${i}`}>
+                  <CategoryTitle>
+                    {i === 0 ? "Now Playing" : i === 1 ? "Top Rated" : "Upcoming" }
+                  </CategoryTitle>
                 <AnimatePresence onExitComplete={toggleLeaving} initial={false}>
-                    <Row  variants={rowVariants} initial="hidden" animate="visible" exit="exit" transition={{ type: "tween", duration: 1 }} key={index}>
-                    {data?.results.slice(1).slice(offset * index, offset * index + offset).map((movie) => (
+                    <Row variants={rowVariants} initial="hidden" animate="visible" exit="exit" transition={{ type: "tween", duration: 1 }} key={index}>
+                    {data[i]?.results.slice(1).slice(offset * index, offset * index + offset).map((movie) => (
                         <Box key={movie.id} bgPhoto={makeImagePath(movie.backdrop_path, "w500")}
                         whileHover="hover"
                         initial="normal"
-                        layoutId={movie.id + ""}
+                        layoutId={`${i}_${movie.id}`}
                         variants={boxVariants}
-                        onClick={() => onClicked(movie.id)}
+                        onClick={() => onClicked(movie.id, i)}
                         >
                             <Payload variants={payloadVariants}>
                                 <h4>{movie.title}</h4>
@@ -213,6 +238,7 @@ function Home() {
                     </Row>
                     </AnimatePresence>
                 </Slider>
+                </>))}
                 <AnimatePresence>
                     {movieMatch ? (
                     <>
@@ -234,8 +260,6 @@ function Home() {
                     </MovieCard> 
                     </>
                     ) : null}
-                   
-                   
                 </AnimatePresence>
             </>
             }
